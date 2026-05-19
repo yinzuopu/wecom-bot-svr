@@ -197,13 +197,19 @@ class WecomBotServer(object):
 
         # 解密出明文的echostr
         ret, msg = wx_cpt.DecryptMsg(request.data, msg_signature, timestamp, nonce)
-        self.logger.info(f"decrypted msg: {msg.decode()}")
         if ret != 0:
+            self.logger.warning(
+                "decrypt message failed: ret=%s, has_msg_signature=%s, has_timestamp=%s, has_nonce=%s, body_size=%s",
+                ret,
+                msg_signature is not None,
+                timestamp is not None,
+                nonce is not None,
+                len(request.data),
+            )
             if self._error_handler:
                 self._error_handler(ret)
-            else:
-                return None
-            # 获取所有的查询参数
+            return ""
+        self.logger.info(f"decrypted msg: {msg.decode()}")
 
         # 解密后的数据是xml格式，用python的标准库xml.etree.cElementTree可以解析
         xml_tree = ET.fromstring(msg)

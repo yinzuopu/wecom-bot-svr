@@ -9,6 +9,7 @@ wx_crypt.WxChannel_Wecom = object()
 sys.modules.setdefault("wx_crypt", wx_crypt)
 
 from wecom_bot_svr import RspTextMsg, WecomBotServer
+import wecom_bot_svr.app as app_module
 
 
 def message_handler(_req_msg):
@@ -82,6 +83,35 @@ class StatusEndpointTest(unittest.TestCase):
         client = server._app.test_client()
         self.assertEqual(client.get("/healthz").status_code, 200)
         self.assertEqual(client.get("/status").status_code, 404)
+
+    def test_post_decrypt_failure_logs_and_returns_empty_response(self):
+        class FailingCrypto:
+            def __init__(self, *_args, **_kwargs):
+                pass
+
+            def DecryptMsg(self, *_args):
+                return 40001, None
+
+        original_crypto = app_module.WXBizMsgCrypt
+        app_module.WXBizMsgCrypt = FailingCrypto
+        error_codes = []
+        try:
+            server = WecomBotServer("test-bot", "127.0.0.1", 5001, path="/wecom_bot", token="token", aes_key="a" * 43)
+            server.set_error_handler(error_codes.append)
+            server._register_routes()
+
+            with self.assertLogs(level="WARNING") as logs:
+                response = server._app.test_client().post(
+                    "/wecom_bot?msg_signature=bad&timestamp=1&nonce=2",
+                    data=b"<xml></xml>",
+                )
+        finally:
+            app_module.WXBizMsgCrypt = original_crypto
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data, b"")
+        self.assertEqual(error_codes, [40001])
+        self.assertIn("decrypt message failed: ret=40001", "\n".join(logs.output))
 
 
 if __name__ == "__main__":
