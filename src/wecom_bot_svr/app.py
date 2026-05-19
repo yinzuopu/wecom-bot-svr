@@ -2,12 +2,14 @@ import inspect
 import logging
 import os
 import xml.etree.cElementTree as ET
+from datetime import datetime, timezone
 
 import requests
-from flask import Flask, request
+from flask import Flask, jsonify, request
 from wx_crypt import WXBizMsgCrypt, WxChannel_Wecom
 
 from .req_msg import ReqMsg
+from .version import get_version
 
 
 # 参考文档：https://km.woa.com/articles/show/387107?kmref=search&from_page=1&no=2#10128
@@ -32,7 +34,7 @@ def _encode_rsp(wx_cpt, rsp_str):
 
 class WecomBotServer(object):
     def __init__(self, name, host, port, path, token=None, aes_key=None, corp_id=None, bot_key=None,
-                 active_msg_path="/active_send"):
+                 active_msg_path="/active_send", status_path="/status"):
         """
         :param name:
         :param host:
@@ -43,11 +45,13 @@ class WecomBotServer(object):
         :param corp_id:
         :param bot_key:
         :param active_msg_path: 主动发送消息的路径
+        :param status_path: 运行状态检查路径，传入 None 可关闭
         """
         self.host = host
         self.port = port
         self.path = path
         self.active_msg_path = active_msg_path
+        self.status_path = status_path
         self._bot_key = bot_key if bot_key is not None else os.getenv("WX_BOT_KEY")
         self._token = token if token is not None else os.getenv("WX_BOT_TOKEN")
         self._aes_key = aes_key if aes_key is not None else os.getenv("WX_BOT_AES_KEY")
@@ -58,6 +62,8 @@ class WecomBotServer(object):
         self._error_handler = None
         self.name = name
         self.logger = logging.getLogger()
+        self._initialized_at = datetime.now(timezone.utc)
+        self._routes_registered = False
 
     def set_message_handler(self, handler):
         self._message_handler = handler
@@ -76,10 +82,61 @@ class WecomBotServer(object):
             raise Exception("message handler is not set")
         if self._event_handler is None:
             raise Exception("event handler is not set")
+        self._register_routes()
+        self._app.run(host=self.host, port=self.port)
+
+    def _register_routes(self):
+        if self._routes_registered:
+            return
         self._app.get(self.path)(self.handle_bot_call_get)
         self._app.post(self.path)(self.handle_bot_call_post)
         self._app.post(self.active_msg_path)(self.handle_active_send)
-        self._app.run(host=self.host, port=self.port)
+        if self.status_path is not None:
+            self._app.get(self.status_path)(self.handle_status)
+        self._routes_registered = True
+
+    def _get_config_status(self):
+        return {
+            "token": self._token is not None,
+            "aes_key": self._aes_key is not None,
+            "corp_id": self._corp_id != "",
+            "bot_key": self._bot_key is not None,
+        }
+
+    def _get_missing_required_config(self):
+        config = self._get_config_status()
+        required_config = ("token", "aes_key")
+        return [key for key in required_config if not config[key]]
+
+    def get_status(self):
+        now = datetime.now(timezone.utc)
+        missing_required_config = self._get_missing_required_config()
+        return {
+            "status": "ok",
+            "name": self.name,
+            "version": get_version(),
+            "initialized_at": self._initialized_at.isoformat(),
+            "current_time": now.isoformat(),
+            "uptime_seconds": int((now - self._initialized_at).total_seconds()),
+            "host": self.host,
+            "port": self.port,
+            "paths": {
+                "callback": self.path,
+                "active_send": self.active_msg_path,
+                "status": self.status_path,
+            },
+            "handlers": {
+                "message": self._message_handler is not None,
+                "event": self._event_handler is not None,
+                "error": self._error_handler is not None,
+            },
+            "config": self._get_config_status(),
+            "config_errors": missing_required_config,
+            "ready": len(missing_required_config) == 0,
+        }
+
+    def handle_status(self):
+        return jsonify(self.get_status())
 
     def handle_active_send(self):
         # 避免外网直接访问：判断来源IP如果非本地地址，直接返回
