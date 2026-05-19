@@ -221,22 +221,32 @@ class WecomBotServer(object):
 
     def upload_file(self, file_path):
         filename = os.path.basename(file_path)
+        if not self._bot_key:
+            self.logger.warning("upload file failed: bot_key is not configured")
+            return None
         try:
             # 打开文件并上传
             with open(file_path, 'rb') as file:
                 files = {'file': (filename, file)}
                 response = requests.post(
                     url=f'https://qyapi.weixin.qq.com/cgi-bin/webhook/upload_media?key={self._bot_key}&type=file',
-                    files=files)
+                    files=files,
+                    timeout=10)
                 # 检查响应
-                if response.status_code != 200 and response.json().get("errcode") == 0:
-                    return None
-                return response.json()['media_id']
-        except:
+                response_data = response.json()
+                if response.status_code == 200 and response_data.get("errcode") == 0:
+                    return response_data.get('media_id')
+                self.logger.warning("upload file failed: status_code=%s, response=%s", response.status_code, response_data)
+                return None
+        except Exception:
+            self.logger.exception("upload file failed: file_path=%s", file_path)
             return None
 
     def proactively_send(self, chat_id, msg_type, msg_type_name, msg_data):
         """"""
+        if not self._bot_key:
+            self.logger.warning("send %s failed: bot_key is not configured", msg_type_name)
+            return f"发送{msg_type_name}失败"
         try:
             payload = {
                 "chatid": chat_id,
@@ -245,12 +255,15 @@ class WecomBotServer(object):
             payload.update(msg_data)
 
             r = requests.post(url=f'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key={self._bot_key}',
-                              json=payload)
-            if r.status_code == 200 and r.json().get("errcode") == 0:
+                              json=payload,
+                              timeout=10)
+            response_data = r.json()
+            if r.status_code == 200 and response_data.get("errcode") == 0:
                 return f"发送{msg_type_name}成功"
-            else:
-                return f"发送{msg_type_name}失败"
-        except:
+            self.logger.warning("send %s failed: status_code=%s, response=%s", msg_type_name, r.status_code, response_data)
+            return f"发送{msg_type_name}失败"
+        except Exception:
+            self.logger.exception("send %s failed: chat_id=%s, msg_type=%s", msg_type_name, chat_id, msg_type)
             return f"发送{msg_type_name}失败"
 
     def send_file(self, chat_id, file_path):
