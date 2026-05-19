@@ -2,9 +2,11 @@ import inspect
 import logging
 import os
 import xml.etree.cElementTree as ET
+from datetime import datetime, timezone
+from importlib import metadata
 
 import requests
-from flask import Flask, request
+from flask import Flask, jsonify, request
 from wx_crypt import WXBizMsgCrypt, WxChannel_Wecom
 
 from .req_msg import ReqMsg
@@ -30,9 +32,32 @@ def _encode_rsp(wx_cpt, rsp_str):
     return rsp
 
 
+def _get_package_version():
+    try:
+        return metadata.version("wecom-bot-svr")
+    except metadata.PackageNotFoundError:
+        return "unknown"
+
+
+def _resolve_log_level(log_level):
+    if log_level is None:
+        return None
+    if isinstance(log_level, int):
+        return log_level
+
+    level_name = str(log_level).strip().upper()
+    if not level_name:
+        return None
+
+    level = logging.getLevelName(level_name)
+    if isinstance(level, int):
+        return level
+    raise ValueError(f"invalid log level: {log_level}")
+
+
 class WecomBotServer(object):
     def __init__(self, name, host, port, path, token=None, aes_key=None, corp_id=None, bot_key=None,
-                 active_msg_path="/active_send"):
+                 active_msg_path="/active_send", health_check_path="/health", log_level=None):
         """
         :param name:
         :param host:
@@ -43,11 +68,14 @@ class WecomBotServer(object):
         :param corp_id:
         :param bot_key:
         :param active_msg_path: 主动发送消息的路径
+        :param health_check_path: 健康检查和运行状态查询路径
+        :param log_level: 日志级别，可通过 WX_BOT_LOG_LEVEL 环境变量配置
         """
         self.host = host
         self.port = port
         self.path = path
         self.active_msg_path = active_msg_path
+        self.health_check_path = health_check_path
         self._bot_key = bot_key if bot_key is not None else os.getenv("WX_BOT_KEY")
         self._token = token if token is not None else os.getenv("WX_BOT_TOKEN")
         self._aes_key = aes_key if aes_key is not None else os.getenv("WX_BOT_AES_KEY")
@@ -58,6 +86,10 @@ class WecomBotServer(object):
         self._error_handler = None
         self.name = name
         self.logger = logging.getLogger()
+        self._log_level = _resolve_log_level(log_level if log_level is not None else os.getenv("WX_BOT_LOG_LEVEL"))
+        if self._log_level is not None:
+            self.logger.setLevel(self._log_level)
+        self._started_at = datetime.now(timezone.utc)
 
     def set_message_handler(self, handler):
         self._message_handler = handler
@@ -79,7 +111,27 @@ class WecomBotServer(object):
         self._app.get(self.path)(self.handle_bot_call_get)
         self._app.post(self.path)(self.handle_bot_call_post)
         self._app.post(self.active_msg_path)(self.handle_active_send)
+        self._app.get(self.health_check_path)(self.handle_health_check)
         self._app.run(host=self.host, port=self.port)
+
+    def get_runtime_status(self):
+        now = datetime.now(timezone.utc)
+        return {
+            "status": "ok",
+            "name": self.name,
+            "version": _get_package_version(),
+            "host": self.host,
+            "port": self.port,
+            "callback_path": self.path,
+            "active_msg_path": self.active_msg_path,
+            "health_check_path": self.health_check_path,
+            "log_level": logging.getLevelName(self.logger.getEffectiveLevel()),
+            "started_at": self._started_at.isoformat(),
+            "uptime_seconds": int((now - self._started_at).total_seconds()),
+        }
+
+    def handle_health_check(self):
+        return jsonify(self.get_runtime_status())
 
     def handle_active_send(self):
         # 避免外网直接访问：判断来源IP如果非本地地址，直接返回

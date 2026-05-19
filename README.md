@@ -79,6 +79,8 @@ docker push docker.io/panzhongxian/wecom-bot-svr-demo:latest
 删除代码中传入的 token 和 key，直接将其以配置的方式传入到服务中即可(
 三个环境变量 `WX_BOT_TOKEN`, `WX_BOT_AES_KEY`, `WX_BOT_CORP_ID`):
 
+也可以通过 `WX_BOT_LOG_LEVEL` 配置服务日志级别（如 `DEBUG`、`INFO`、`WARNING`、`ERROR`），或在创建服务时传入 `log_level` 参数。
+
 ```python
 server = app.WecomBotServer(bot_name, host, port, path='/wecom_bot')
 ```
@@ -155,11 +157,43 @@ print(response.text)
 
 ![active_send](https://github.com/easy-wx/wecom-bot-svr/raw/main/images/active_send_group.png)
 
-## 7. TODO
+## 7. 健康检查和运行状态
+
+服务启动后会默认注册一个 `GET /health` 路由，用于健康检查、版本信息和运行状态查询：
+
+```bash
+curl http://127.0.0.1:5001/health
+```
+
+返回示例：
+
+```json
+{
+  "status": "ok",
+  "name": "wecom_bot",
+  "version": "0.3.3",
+  "host": "0.0.0.0",
+  "port": 5001,
+  "callback_path": "/wecom_bot",
+  "active_msg_path": "/active_send",
+  "health_check_path": "/health",
+  "log_level": "INFO",
+  "started_at": "2026-05-19T07:00:00.000000+00:00",
+  "uptime_seconds": 12
+}
+```
+
+如需自定义路径，可以在创建服务时传入 `health_check_path`：
+
+```python
+server = WecomBotServer(bot_name, host, port, path='/wecom_bot', health_check_path='/status')
+```
+
+## 8. TODO
 
 - 增加默认权限支持
 
 
-## 8. Star History
+## 9. Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=easy-wx/wecom-bot-svr&type=Date)](https://star-history.com/#easy-wx/wecom-bot-svr&Date)
