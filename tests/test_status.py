@@ -84,6 +84,94 @@ class StatusEndpointTest(unittest.TestCase):
         self.assertEqual(client.get("/healthz").status_code, 200)
         self.assertEqual(client.get("/status").status_code, 404)
 
+    def test_config_page_is_available(self):
+        server = WecomBotServer(
+            "test-bot",
+            "127.0.0.1",
+            5001,
+            path="/wecom_bot",
+            token="token",
+            aes_key="a" * 43,
+        )
+        server._register_routes()
+
+        response = server._app.test_client().get("/config")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.get_data(as_text=True)
+        self.assertIn("配置管理", body)
+        self.assertIn("Token", body)
+        self.assertIn("启动参数预览", body)
+
+    def test_config_api_validates_and_saves_config(self):
+        server = WecomBotServer(
+            "test-bot",
+            "127.0.0.1",
+            5001,
+            path="/wecom_bot",
+            token="token",
+            aes_key="a" * 43,
+        )
+        server._register_routes()
+        client = server._app.test_client()
+
+        invalid_response = client.post("/config/api", json={"aes_key": "short"})
+        self.assertEqual(invalid_response.status_code, 400)
+        self.assertIn("aes_key", invalid_response.get_json()["errors"])
+
+        valid_response = client.post(
+            "/config/api",
+            json={
+                "name": "ops-bot",
+                "host": "0.0.0.0",
+                "port": 8080,
+                "path": "/callback",
+                "token": "new-token",
+                "aes_key": "b" * 43,
+                "corp_id": "ww123",
+                "bot_key": "bot-key",
+            },
+        )
+
+        self.assertEqual(valid_response.status_code, 200)
+        payload = valid_response.get_json()
+        self.assertEqual(payload["config"]["name"], "ops-bot")
+        self.assertEqual(payload["config"]["port"], 8080)
+        self.assertEqual(payload["config"]["path"], "/callback")
+        self.assertTrue(payload["status"]["ready"])
+
+    def test_config_api_can_reset_to_initial_config(self):
+        server = WecomBotServer(
+            "test-bot",
+            "127.0.0.1",
+            5001,
+            path="/wecom_bot",
+            token="token",
+            aes_key="a" * 43,
+        )
+        server._register_routes()
+        client = server._app.test_client()
+
+        client.post(
+            "/config/api",
+            json={
+                "name": "ops-bot",
+                "host": "0.0.0.0",
+                "port": 8080,
+                "path": "/callback",
+                "token": "new-token",
+                "aes_key": "b" * 43,
+            },
+        )
+        response = client.post("/config/api?reset=1")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertEqual(payload["config"]["name"], "test-bot")
+        self.assertEqual(payload["config"]["host"], "127.0.0.1")
+        self.assertEqual(payload["config"]["port"], 5001)
+        self.assertEqual(payload["config"]["path"], "/wecom_bot")
+
     def test_post_decrypt_failure_logs_and_returns_empty_response(self):
         class FailingCrypto:
             def __init__(self, *_args, **_kwargs):
