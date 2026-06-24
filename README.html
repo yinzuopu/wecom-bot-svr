@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>wecom-bot-svr · 企业微信机器人回调服务框架</title>
+<style>
+:root {
+  --bg: #f4f1ea;
+  --fg: #24292f;
+  --border: #d0d7de;
+  --link: #0969da;
+  --code-bg: #ece8df;
+  --quote-bg: #ece8df;
+  --thead-bg: #ece8df;
+  --shadow: 0 1px 2px rgba(0,0,0,0.06);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1117;
+    --fg: #c9d1d9;
+    --border: #30363d;
+    --link: #58a6ff;
+    --code-bg: #161b22;
+    --quote-bg: #161b22;
+    --thead-bg: #161b22;
+  }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--fg);
+  background: var(--bg);
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 32px 24px;
+}
+h1 { font-size: 2em; font-weight: 600; margin: 24px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+h2 { font-size: 1.5em; font-weight: 600; margin: 24px 0 16px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+h3 { font-size: 1.25em; font-weight: 600; margin: 24px 0 12px; }
+h4 { font-size: 1em; font-weight: 600; margin: 16px 0 8px; }
+p { margin: 0 0 16px; }
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+img { max-width: 100%; border-radius: 6px; }
+ul, ol { margin: 0 0 16px; padding-left: 2em; }
+li { margin-bottom: 4px; }
+blockquote {
+  margin: 0 0 16px;
+  padding: 8px 16px;
+  background: var(--quote-bg);
+  border-left: 4px solid var(--border);
+  color: #656d76;
+}
+blockquote p { margin: 0; }
+code {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 85%;
+  background: var(--code-bg);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+pre {
+  margin: 0 0 16px;
+  padding: 16px;
+  background: var(--code-bg);
+  border-radius: 6px;
+  overflow-x: auto;
+  box-shadow: var(--shadow);
+}
+pre code {
+  background: none;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1.45;
+}
+table {
+  width: 100%;
+  margin: 0 0 16px;
+  border-collapse: collapse;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+thead { background: var(--thead-bg); }
+th, td {
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  text-align: left;
+}
+th { font-weight: 600; }
+hr { margin: 24px 0; border: none; border-top: 1px solid var(--border); }
+@media (max-width: 600px) {
+  body { padding: 16px 12px; font-size: 15px; }
+  pre { padding: 12px; }
+}
+</style>
+</head>
+<body>
+<h1>wecom-bot-svr · 企业微信机器人回调服务框架</h1>
+<p><a href="https://pypi.org/project/wecom-bot-svr/"><img alt="PyPI" src="https://img.shields.io/pypi/v/wecom-bot-svr.svg" /></a>
+<a href="https://www.python.org/"><img alt="Python" src="https://img.shields.io/badge/python-%3E%3D3.8-blue.svg" /></a>
+<a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg" /></a>
+<a href="https://github.com/easy-wx/wecom-bot-svr"><img alt="Star History" src="https://img.shields.io/github/stars/easy-wx/wecom-bot-svr?style=social" /></a></p>
+<p>基于 <a href="https://flask.palletsprojects.com/">Flask</a> 的企业微信群机器人<strong>回调服务</strong>最小化框架。开发者只需实现两个回调函数（消息处理 + 事件处理），即可快速搭建一个具备加解密、主动推送、文件发送、健康检查、配置后台的完整服务。</p>
+<blockquote>
+<p>如果项目对你有帮助，欢迎点一个 ⭐ Star。</p>
+</blockquote>
+<hr />
+<h2><strong>特性</strong></h2>
+<ul>
+<li>开箱即用：两个函数即可上线一个企业微信机器人</li>
+<li>内置回调消息加解密（兼容企业微信官方协议）</li>
+<li>支持文本 / Markdown 回复，支持主动发送文件</li>
+<li>内置 <strong>主动推送接口</strong>（仅本地网络可调用，安全隔离）</li>
+<li>内置 <strong>健康检查接口</strong> <code>/health</code>，输出版本与运行状态</li>
+<li>内置 <strong>配置管理页面</strong> <code>/config</code>，支持表单校验、敏感信息隐藏</li>
+<li>支持 Docker 一键部署，支持环境变量注入敏感配置</li>
+<li>日志级别可配置（环境变量或参数）</li>
+</ul>
+<hr />
+<h2><strong>更新日志</strong></h2>
+<table>
+<thead>
+<tr>
+<th>日期</th>
+<th>版本</th>
+<th>变更</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2025-02-08</td>
+<td>-</td>
+<td>新增主动发送消息服务（本地网络 POST 触发）</td>
+</tr>
+<tr>
+<td>2024-12-09</td>
+<td>-</td>
+<td>新增主动文件发送（可由消息触发）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2><strong>快速开始</strong></h2>
+<h3>1. 安装</h3>
+<pre class="codehilite"><code class="language-bash">pip3 install wecom-bot-svr
+</code></pre>
+
+<p>要求：Python ≥ 3.8。</p>
+<h3>2. 最小示例</h3>
+<p>参考 <a href="demo/demo.py">demo/demo.py</a>：</p>
+<pre class="codehilite"><code class="language-python">from wecom_bot_svr import WecomBotServer, RspTextMsg, RspMarkdownMsg, ReqMsg
+from wecom_bot_svr.req_msg import TextReqMsg
+
+def msg_handler(req_msg: ReqMsg, server: WecomBotServer):
+    if req_msg.msg_type == 'text' and isinstance(req_msg, TextReqMsg):
+        if req_msg.content.strip() == 'help':
+            ret = RspMarkdownMsg()
+            ret.content = &quot;### Help\n- 输入任意消息回显类型&quot;
+            return ret
+    ret = RspTextMsg()
+    ret.content = f'msg_type: {req_msg.msg_type}'
+    return ret
+
+def event_handler(req_msg):
+    ret = RspMarkdownMsg()
+    if req_msg.event_type == 'add_to_chat':
+        ret.content = f'欢迎！群ID：{req_msg.chat_id}，回复 help 查看用法'
+    return ret
+
+server = WecomBotServer('my-bot', '0.0.0.0', 5001, path='/wecom_bot',
+                        token='xxx', aes_key='x' * 43, corp_id='', bot_key='xxxxx')
+server.set_message_handler(msg_handler)
+server.set_event_handler(event_handler)
+server.run()
+</code></pre>
+
+<h3>3. 本地验证</h3>
+<pre class="codehilite"><code class="language-bash">python3 demo.py
+curl 'http://127.0.0.1:5001/wecom_bot?msg_signature=09380007d4f0891d966988e5450ad794c77fa01c&amp;timestamp=1703041184&amp;nonce=1703023880&amp;echostr=oCdlC8pJ%2FDIjXnC8F9reyjDYlSImCmIgxA4prPD%2Bl2Fj5qBHjFiWnpelQofsDCJrSEvNVTET6oQmoXLQxzUkyQ%3D%3D'
+</code></pre>
+
+<hr />
+<h2><strong>接入企业微信</strong></h2>
+<h3>1. 创建机器人并配置回调</h3>
+<p>群聊右上角「...」→「添加群机器人」→「接收消息配置」，填入回调地址、Token、AESKey。</p>
+<p><img src="https://github.com/easy-wx/wecom-bot-svr/raw/main/images/new_wecom_bot.png" width="420" /></p>
+<h3>2. 群内体验</h3>
+<p>支持 <code>help</code> 命令回复、入群事件触发欢迎语：</p>
+<p>
+<img src="https://github.com/easy-wx/wecom-bot-svr/raw/main/images/add_wecom_bot.png" width="320" />
+<img src="https://github.com/easy-wx/wecom-bot-svr/raw/main/images/wecom_bot_join.png" width="320" />
+</p>
+
+<h3>3. 发布到公司</h3>
+<p>机器人资料页 → 「发布到公司」，发布后才能被同事搜索并添加到其他群。</p>
+<p><img src="https://github.com/easy-wx/wecom-bot-svr/raw/main/images/publish_wecom_bot.png" width="420" /></p>
+<hr />
+<h2><strong>配置项</strong></h2>
+<h3>构造参数</h3>
+<pre class="codehilite"><code class="language-python">WecomBotServer(
+    bot_name, host, port,
+    path='/wecom_bot',          # 回调路径
+    token=..., aes_key=..., corp_id=...,
+    bot_key=...,                # WebHook key，用于发送文件/主动消息
+    config_page_path='/config', # 设为 None 可关闭
+    health_check_path='/health',
+    log_level='INFO',
+)
+</code></pre>
+
+<h3>环境变量（推荐生产使用）</h3>
+<table>
+<thead>
+<tr>
+<th>变量</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>WX_BOT_TOKEN</code></td>
+<td>回调 Token</td>
+</tr>
+<tr>
+<td><code>WX_BOT_AES_KEY</code></td>
+<td>回调 AESKey（43 字符）</td>
+</tr>
+<tr>
+<td><code>WX_BOT_CORP_ID</code></td>
+<td>企业 CorpID</td>
+</tr>
+<tr>
+<td><code>WX_BOT_LOG_LEVEL</code></td>
+<td><code>DEBUG</code> / <code>INFO</code> / <code>WARNING</code> / <code>ERROR</code></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>Token / AESKey 建议在机器人配置页使用「随机生成」按钮获取，不要硬编码到代码中。</p>
+</blockquote>
+<p>
+<img src="https://github.com/easy-wx/wecom-bot-svr/raw/main/images/random_token_1.png" width="320" />
+<img src="https://github.com/easy-wx/wecom-bot-svr/raw/main/images/random_token_2.png" width="320" />
+</p>
+
+<hr />
+<h2><strong>核心能力</strong></h2>
+<h3>消息与事件处理</h3>
+<ul>
+<li><code>msg_handler(req_msg, server) -&gt; rsp_msg</code>：处理文本等消息</li>
+<li><code>event_handler(req_msg) -&gt; rsp_msg</code>：处理入群等事件</li>
+<li>请求消息类型见 <a href="src/wecom_bot_svr/req_msg.py">src/wecom_bot_svr/req_msg.py</a></li>
+<li>响应消息支持 <code>RspTextMsg</code> / <code>RspMarkdownMsg</code>，定义见 <a href="src/wecom_bot_svr/rsp_msg.py">src/wecom_bot_svr/rsp_msg.py</a></li>
+</ul>
+<h3>发送文件</h3>
+<p>构造服务时传入 <code>bot_key</code>（来自 WebHook URL 的 key），即可在消息处理函数中调用：</p>
+<pre class="codehilite"><code class="language-python">def msg_handler(req_msg: ReqMsg, server: WecomBotServer):
+    with open('output.txt', 'w') as f:
+        f.write(&quot;hello from wecom-bot-svr&quot;)
+    server.send_file(req_msg.chat_id, 'output.txt')
+    return RspTextMsg()
+</code></pre>
+
+<p><img src="https://github.com/easy-wx/wecom-bot-svr/raw/main/images/send_file.png" width="420" /></p>
+<p>原理参考：<a href="https://developer.work.weixin.qq.com/document/path/91770">企业微信文件类型文档</a>。</p>
+<h3>主动推送（<code>/active_send</code>）</h3>
+<p>独立路由用于业务侧主动触发消息，<strong>仅接受本地网络 POST</strong>，外网请求自动拒绝。可与回调逻辑解耦。</p>
+<pre class="codehilite"><code class="language-python">import requests
+requests.post(&quot;http://127.0.0.1:5001/active_send&quot;,
+              data={&quot;msg_type&quot;: &quot;text&quot;, &quot;chat_id&quot;: &quot;&lt;user_or_chat_id&gt;&quot;, &quot;content&quot;: &quot;主动消息&quot;})
+</code></pre>
+
+<p>
+<img src="https://github.com/easy-wx/wecom-bot-svr/raw/main/images/active_send.png" width="320" />
+<img src="https://github.com/easy-wx/wecom-bot-svr/raw/main/images/active_send_group.png" width="320" />
+</p>
+
+<h3>健康检查（<code>/health</code>）</h3>
+<pre class="codehilite"><code class="language-bash">curl http://127.0.0.1:5001/health
+</code></pre>
+
+<p>返回服务名、版本、监听地址、各路由路径、日志级别、启动时间和已运行秒数，便于运维探活。</p>
+<h3>配置管理页面（<code>/config</code>）</h3>
+<p>浏览器访问 <code>/config</code> 可查看 / 编辑 Token、AESKey、CorpID、Bot Key 等配置项。
+- 仅写入当前浏览器 <code>localStorage</code>，<strong>不落盘</strong>到服务端
+- 支持敏感信息隐藏 / 显示、表单校验、启动参数预览
+- 生产环境如需开放该页面，建议加鉴权或仅允许内网访问；不需要时可设 <code>config_page_path=None</code></p>
+<hr />
+<h2><strong>Docker 部署</strong></h2>
+<pre class="codehilite"><code class="language-bash">cd demo
+docker build -t wecom-bot-svr-demo .
+docker run -d -p 5001:5001 \
+  -e WX_BOT_TOKEN=xxx \
+  -e WX_BOT_AES_KEY=xxx \
+  -e WX_BOT_CORP_ID=xxx \
+  wecom-bot-svr-demo
+</code></pre>
+
+<p>回调地址即 <code>http(s)://&lt;your-domain&gt;/wecom_bot</code>，填入企业微信机器人后台即可。</p>
+<hr />
+<h2><strong>项目结构</strong></h2>
+<pre class="codehilite"><code>wecom-bot-svr/
+├── src/wecom_bot_svr/      # 框架源码
+│   ├── app.py              # WecomBotServer 主体
+│   ├── req_msg.py          # 请求消息模型
+│   ├── rsp_msg.py          # 响应消息模型
+│   └── req_msg_str.py      # 原始字符串解析
+├── demo/                   # 最小示例 + Dockerfile
+├── docker/                 # 部署用 Dockerfile
+├── tests/                  # 单元测试
+└── pyproject.toml
+</code></pre>
+
+<p>更多开发细节见 <a href="DEVELOPMENT.md">DEVELOPMENT.md</a>。</p>
+<hr />
+<h2><strong>路线图</strong></h2>
+<ul>
+<li>[ ] 默认权限支持（按用户 / 群组）</li>
+<li>[ ] 更多响应消息类型支持</li>
+</ul>
+<p>欢迎通过 Issue / PR 提建议。</p>
+<hr />
+<h2><strong>License</strong></h2>
+<p><a href="LICENSE">MIT</a> © panzhongxian</p>
+<h2><strong>Star History</strong></h2>
+<p><a href="https://star-history.com/#easy-wx/wecom-bot-svr&amp;Date"><img alt="Star History Chart" src="https://api.star-history.com/svg?repos=easy-wx/wecom-bot-svr&amp;type=Date" /></a></p>
+</body>
+</html>

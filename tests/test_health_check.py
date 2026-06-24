@@ -26,6 +26,7 @@ class HealthCheckTest(unittest.TestCase):
         self.assertEqual(status["callback_path"], "/wecom_bot")
         self.assertEqual(status["active_msg_path"], "/active_send")
         self.assertEqual(status["health_check_path"], "/health")
+        self.assertEqual(status["config_page_path"], "/config")
         self.assertIn("log_level", status)
         self.assertIn("version", status)
         self.assertIn("started_at", status)
@@ -62,6 +63,19 @@ class HealthCheckTest(unittest.TestCase):
         self.assertEqual(data["status"], "ok")
         self.assertEqual(data["health_check_path"], "/status")
         self.assertEqual(data["callback_path"], "/wecom_bot")
+
+    def test_config_page_route(self):
+        server = WecomBotServer("test_bot", "127.0.0.1", 5001, path="/wecom_bot")
+        server.set_message_handler(lambda msg: None)
+        server.set_event_handler(lambda msg: None)
+        server._app.run = lambda *args, **kwargs: None
+
+        server.run()
+        response = server._app.test_client().get("/config")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("企业微信机器人配置管理", response.get_data(as_text=True))
+        self.assertIn("启动参数预览", response.get_data(as_text=True))
 
 
 if __name__ == "__main__":
